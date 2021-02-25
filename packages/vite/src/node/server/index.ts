@@ -259,18 +259,25 @@ export interface ViteDevServer {
 export async function createServer(
   inlineConfig: InlineConfig = {}
 ): Promise<ViteDevServer> {
+  // 加载开发配置文件
   const config = await resolveConfig(inlineConfig, 'serve', 'development')
+  // 获取项目根目录（index.html 文件所在的位置）
   const root = config.root
+  // 加载server配置 比如proxy hmr等等
   const serverConfig = config.server || {}
   const middlewareMode = !!serverConfig.middlewareMode
 
+  // 利用 Connect 实现的中间件列表
   const middlewares = connect() as Connect.Server
+  // 创建 http 服务
   const httpServer = middlewareMode
     ? null
     : await resolveHttpServer(serverConfig, middlewares)
+  // 创建websocket 服务
   const ws = createWebSocketServer(httpServer, config)
 
   const { ignored = [], ...watchOptions } = serverConfig.watch || {}
+  // 创建文件监听器
   const watcher = chokidar.watch(path.resolve(root), {
     ignored: ['**/node_modules/**', '**/.git/**', ...ignored],
     ignoreInitial: true,
@@ -278,11 +285,18 @@ export async function createServer(
     ...watchOptions
   }) as FSWatcher
 
+  // 获取新增的插件
   const plugins = config.plugins
+  // 继承rollup实现了一个迷你版的构解析构建工具
   const container = await createPluginContainer(config, watcher)
+
+  // 创建一个图来维护模块之间的关系
   const moduleGraph = new ModuleGraph(container)
+
+  // 关闭服务
   const closeHttpServer = createSeverCloseFn(httpServer)
 
+  // 组装整个Vite Server
   const server: ViteDevServer = {
     config: config,
     middlewares,
@@ -297,7 +311,9 @@ export async function createServer(
     pluginContainer: container,
     ws,
     moduleGraph,
+    // 通过esbuild做转换
     transformWithEsbuild,
+    // 转换请求
     transformRequest(url, options) {
       return transformRequest(url, server, options)
     },
@@ -318,9 +334,15 @@ export async function createServer(
         e.stack = ssrRewriteStacktrace(e.stack, moduleGraph)
       }
     },
+    // http server listen
+    // 开启服务
     listen(port?: number, isRestart?: boolean) {
       return startServer(server, port, isRestart)
     },
+    // 关闭文件监听
+    // 关闭websocket
+    // 关闭解析
+    // 关闭http server
     async close() {
       await Promise.all([
         watcher.close(),
@@ -337,6 +359,7 @@ export async function createServer(
     _pendingReload: null
   }
 
+  // 解析开发环境index html
   server.transformIndexHtml = createDevHtmlTransformFn(server)
 
   const exitProcess = async () => {
@@ -353,12 +376,17 @@ export async function createServer(
     process.stdin.on('end', exitProcess)
   }
 
+  // 文件监听器 监听到change
   watcher.on('change', async (file) => {
+    // 获取到改变的文件
     file = normalizePath(file)
     // invalidate module graph cache on file change
+    // 文件改变 查出文件中的依赖 废弃依赖缓存
     moduleGraph.onFileChange(file)
+    // 开启热更新
     if (serverConfig.hmr !== false) {
       try {
+        // 热更新通知客户端文件更新
         await handleHMRUpdate(file, server)
       } catch (err) {
         ws.send({
@@ -398,7 +426,9 @@ export async function createServer(
     middlewares.use(corsMiddleware(typeof cors === 'boolean' ? {} : cors))
   }
 
-  // proxy
+  // 下面接入各种中间件
+
+  // proxy 代理中间件
   const { proxy } = serverConfig
   if (proxy) {
     middlewares.use(proxyMiddleware(server))
@@ -410,17 +440,21 @@ export async function createServer(
   }
 
   // open in editor support
+  // 鱿鱼丝做的打开编辑器的中间件 后面可以了解一下
   middlewares.use('/__open-in-editor', launchEditorMiddleware())
 
   // hmr reconnect ping
+  // 热更新心跳机制
   middlewares.use('/__vite_ping', (_, res) => res.end('pong'))
 
   // serve static files under /public
   // this applies before the transform middleware so that these files are served
   // as-is without transforms.
+  // 静态资源中间件 把/public 中资源起一个服务
   middlewares.use(servePublicMiddleware(config.publicDir))
 
   // main transform middleware
+  // 文件转换中间件 很重要
   middlewares.use(transformMiddleware(server))
 
   // serve static files
@@ -428,6 +462,7 @@ export async function createServer(
   middlewares.use(serveStaticMiddleware(root, config))
 
   // spa fallback
+  // spa try file to index.html 防止history路由刷新404问题
   if (!middlewareMode) {
     middlewares.use(
       history({
@@ -453,10 +488,12 @@ export async function createServer(
   // run post config hooks
   // This is applied before the html middleware so that user middleware can
   // serve custom content instead of index.html.
+  // 自定义hooks
   postHooks.forEach((fn) => fn && fn())
 
   if (!middlewareMode) {
     // transform index.html
+    // 转换index.html
     middlewares.use(indexHtmlMiddleware(server))
     // handle 404s
     middlewares.use((_, res) => {
@@ -468,6 +505,7 @@ export async function createServer(
   // error handler
   middlewares.use(errorMiddleware(server, middlewareMode))
 
+  // 优化依赖
   const runOptimize = async () => {
     if (config.optimizeCacheDir) {
       server._isRunningOptimizer = true
@@ -485,6 +523,7 @@ export async function createServer(
     const listen = httpServer.listen.bind(httpServer)
     httpServer.listen = (async (port: number, ...args: any[]) => {
       try {
+        // 开启插件
         await container.buildStart({})
         await runOptimize()
       } catch (e) {
@@ -504,6 +543,8 @@ export async function createServer(
 
   return server
 }
+
+// 下面就是开启服务 关闭服务的方法
 
 async function startServer(
   server: ViteDevServer,
