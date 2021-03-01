@@ -54,6 +54,7 @@ export type UserConfigExport = UserConfig | UserConfigFn
  * The function receives a {@link ConfigEnv} object that exposes two properties:
  * `command` (either `'build'` or `'serve'`), and `mode`.
  */
+// 导出用户配置接口，使用户在进行配置时有良好的代码提示功能
 export function defineConfig(config: UserConfigExport): UserConfigExport {
   return config
 }
@@ -190,6 +191,7 @@ export type ResolveFn = (
   aliasOnly?: boolean
 ) => Promise<string | undefined>
 
+// 加载配置
 export async function resolveConfig(
   inlineConfig: InlineConfig,
   command: 'build' | 'serve',
@@ -211,6 +213,8 @@ export async function resolveConfig(
     command
   }
 
+  // 如果配置文件是显示配置的话
+  // 通过改配置地址获取配置信息
   let { configFile } = config
   if (configFile !== false) {
     const loadResult = await loadConfigFromFile(
@@ -219,25 +223,32 @@ export async function resolveConfig(
       config.root,
       config.logLevel
     )
+    // 合并配置
     if (loadResult) {
       config = mergeConfig(loadResult.config, config)
       configFile = loadResult.path
     }
   }
   // user config may provide an alternative mode
+  // 环境变量
   mode = config.mode || mode
 
   // resolve plugins
+  // 加载用户配置
   const rawUserPlugins = (config.plugins || []).flat().filter((p) => {
     return !p.apply || p.apply === command
   })
+  // 配置重排序
   const [prePlugins, normalPlugins, postPlugins] = sortUserPlugins(
     rawUserPlugins
   )
 
   // run config hooks
+  // 见官方文档  https://cn.vitejs.dev/guide/api-plugin.html#config
   const userPlugins = [...prePlugins, ...normalPlugins, ...postPlugins]
   userPlugins.forEach((p) => {
+    // 对外提供 vite 特有的插件钩子
+    // 可获取用户配置
     if (p.config) {
       const res = p.config(config, configEnv)
       if (res) {
@@ -247,6 +258,7 @@ export async function resolveConfig(
   })
 
   // resolve root
+  // 加载根配置
   const resolvedRoot = normalizePath(
     config.root ? path.resolve(config.root) : process.cwd()
   )
@@ -261,6 +273,7 @@ export async function resolveConfig(
     config.resolve?.alias || config.alias || []
   )
 
+  // 导出resolve对象
   const resolveOptions: ResolvedConfig['resolve'] = {
     dedupe: config.dedupe,
     ...config.resolve,
@@ -289,20 +302,26 @@ export async function resolveConfig(
     [`package.json`],
     true /* pathOnly */
   )
+
+  // 获取编译缓存文件
   const optimizeCacheDir =
     pkgPath && path.join(path.dirname(pkgPath), `node_modules/${DEP_CACHE_DIR}`)
 
+  // 指定其他文件类型作为静态资源处理（这样导入它们就会返回解析后的 URL）
   const assetsFilter = config.assetsInclude
     ? createFilter(config.assetsInclude)
     : () => false
 
   // create an internal resolver to be used in special scenarios, e.g.
   // optimizer & handling css @imports
+  // 创建一个加载起去消费用户的配置
   const createResolver: ResolvedConfig['createResolver'] = (options) => {
     let aliasContainer: PluginContainer | undefined
     let resolverContainer: PluginContainer | undefined
     return async (id, importer, aliasOnly) => {
       let container: PluginContainer
+      // 将resolve.alias 传递给 @rollup/plugin-alias
+      // 如果只配置了alias
       if (aliasOnly) {
         container =
           aliasContainer ||
@@ -317,6 +336,7 @@ export async function resolveConfig(
             ...resolved,
             plugins: [
               aliasPlugin({ entries: resolved.resolve.alias }),
+              // 对于
               resolvePlugin({
                 ...resolved.resolve,
                 root: resolvedRoot,
@@ -334,6 +354,7 @@ export async function resolveConfig(
     }
   }
 
+  // 返回 ResolvedConfig 对象
   const resolved: ResolvedConfig = {
     ...config,
     configFile: configFile ? normalizePath(configFile) : undefined,
@@ -363,6 +384,7 @@ export async function resolveConfig(
     createResolver
   }
 
+  // 加载插件
   ;(resolved as any).plugins = await resolvePlugins(
     resolved,
     prePlugins,
@@ -500,6 +522,7 @@ function resolveBaseUrl(
   return base
 }
 
+// 合并配置
 export function mergeConfig(
   a: Record<string, any>,
   b: Record<string, any>,
@@ -524,6 +547,7 @@ export function mergeConfig(
 
     // root fields that require special handling
     if (existing != null && isRoot) {
+      // 如果是alias 配置 使用mergeAlias方法合并
       if (key === 'alias') {
         merged[key] = mergeAlias(existing, value)
         continue
@@ -585,6 +609,7 @@ export function sortUserPlugins(
   return [prePlugins, normalPlugins, postPlugins]
 }
 
+// 通过文件获取配置信息
 export async function loadConfigFromFile(
   configEnv: ConfigEnv,
   configFile?: string,
@@ -599,12 +624,14 @@ export async function loadConfigFromFile(
 
   // check package.json for type: "module" and set `isMjs` to true
   try {
+    // 获取package。json
     const pkg = lookupFile(configRoot, ['package.json'])
     if (pkg && JSON.parse(pkg).type === 'module') {
       isMjs = true
     }
   } catch (e) {}
 
+  // 如果是配置文件配置的话
   if (configFile) {
     // explicit config path is always resolved from cwd
     resolvedPath = path.resolve(configFile)
@@ -641,13 +668,14 @@ export async function loadConfigFromFile(
   try {
     let userConfig: UserConfigExport | undefined
 
+    // 如果是mjs
+    // 就会从`import(fileUrl + '.js?t=${Date.now()}')`解析
     if (isMjs) {
       const fileUrl = require('url').pathToFileURL(resolvedPath)
+      // 如果是ts
       if (isTS) {
-        // before we can register loaders without requiring users to run node
-        // with --experimental-loader themselves, we have to do a hack here:
-        // bundle the config file w/ ts transforms first, write it to disk,
-        // load it with native Node ESM, then delete the file.
+        // 首先将ts转换后的配置文件打包，将其写入文件
+        // 使用esm 加载，然后删除该文件
         const code = await bundleConfigFile(resolvedPath, true)
         fs.writeFileSync(resolvedPath + '.js', code)
         userConfig = (await eval(`import(fileUrl + '.js?t=${Date.now()}')`))
@@ -661,6 +689,7 @@ export async function loadConfigFromFile(
         // using eval to avoid this from being compiled away by TS/Rollup
         // append a query so that we force reload fresh config in case of
         // server restart
+        // 使用eval 避免被tsc或者Rollup编译
         userConfig = (await eval(`import(fileUrl + '?t=${Date.now()}')`))
           .default
         debug(`native esm config loaded in ${Date.now() - start}ms`, fileUrl)
@@ -671,6 +700,7 @@ export async function loadConfigFromFile(
       // 1. try to directly require the module (assuming commonjs)
       try {
         // clear cache in case of server restart
+        // 清除缓存
         delete require.cache[require.resolve(resolvedPath)]
         userConfig = require(resolvedPath)
         debug(`cjs config loaded in ${Date.now() - start}ms`)
@@ -696,7 +726,9 @@ export async function loadConfigFromFile(
       // the user has type: "module" in their package.json (#917)
       // transpile es import syntax to require syntax using rollup.
       // lazy require rollup (it's actually in dependencies)
+      // 如果走到这里 说明文件是ts 或者是es导入的
       const code = await bundleConfigFile(resolvedPath)
+      // 从编译文件中加载配置
       userConfig = await loadConfigFromBundledFile(resolvedPath, code)
       debug(`bundled config file loaded in ${Date.now() - start}ms`)
     }
@@ -720,6 +752,7 @@ export async function loadConfigFromFile(
   }
 }
 
+// 编译配置文件
 async function bundleConfigFile(
   fileName: string,
   mjs = false
@@ -788,6 +821,7 @@ async function loadConfigFromBundledFile(
   return config
 }
 
+// 加载环境变量
 export function loadEnv(mode: string, root: string, prefix = 'VITE_') {
   if (mode === 'local') {
     throw new Error(
@@ -796,6 +830,7 @@ export function loadEnv(mode: string, root: string, prefix = 'VITE_') {
     )
   }
 
+  // env 变量文件
   const env: Record<string, string> = {}
   const envFiles = [
     /** mode local file */ `.env.${mode}.local`,
@@ -807,6 +842,7 @@ export function loadEnv(mode: string, root: string, prefix = 'VITE_') {
   // check if there are actual env variables starting with VITE_*
   // these are typically provided inline and should be prioritized
   for (const key in process.env) {
+    // 遍历 process.env 只有开头为VITE_的才加入
     if (key.startsWith(prefix) && env[key] === undefined) {
       env[key] = process.env[key] as string
     }
@@ -820,6 +856,7 @@ export function loadEnv(mode: string, root: string, prefix = 'VITE_') {
       })
 
       // let environment variables use each other
+      // 使用dotenvExpand 拓展
       dotenvExpand({
         parsed,
         // prevent process.env mutation

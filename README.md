@@ -6,7 +6,7 @@
 
 [开发模式入口，创建服务  ](https://www.wolai.com/ahwgs/eSLuGgeTqRS5nag2WJMd34)
 
-[resolveConfig 获取配置](https://www.wolai.com/ahwgs/hBTjYy3WMYa3vApSfTdLNP)
+[获取应用配置](https://www.wolai.com/ahwgs/hBTjYy3WMYa3vApSfTdLNP)
 
 [解析请求资源中间件
 ](https://www.wolai.com/ahwgs/9qoizQtip8R2zBqqBHPoSh)
