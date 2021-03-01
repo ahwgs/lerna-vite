@@ -261,6 +261,7 @@ export async function createServer(
 ): Promise<ViteDevServer> {
   // 加载开发配置文件
   const config = await resolveConfig(inlineConfig, 'serve', 'development')
+
   // 获取项目根目录（index.html 文件所在的位置）
   const root = config.root
   // 加载server配置 比如proxy hmr等等
@@ -406,6 +407,7 @@ export async function createServer(
   })
 
   // apply server configuration hooks from plugins
+  // 对外暴露 server 对象 ，方便用户拓展插件
   const postHooks: ((() => void) | void)[] = []
   for (const plugin of plugins) {
     if (plugin.configureServer) {
@@ -489,6 +491,7 @@ export async function createServer(
   // This is applied before the html middleware so that user middleware can
   // serve custom content instead of index.html.
   // 自定义hooks
+  // configureServer 对外暴露 server
   postHooks.forEach((fn) => fn && fn())
 
   if (!middlewareMode) {
@@ -505,7 +508,7 @@ export async function createServer(
   // error handler
   middlewares.use(errorMiddleware(server, middlewareMode))
 
-  // 优化依赖
+  // 依赖预构建
   const runOptimize = async () => {
     if (config.optimizeCacheDir) {
       server._isRunningOptimizer = true
@@ -525,6 +528,7 @@ export async function createServer(
       try {
         // 开启插件
         await container.buildStart({})
+        // 这里会进行依赖的预构建
         await runOptimize()
       } catch (e) {
         httpServer.emit('error', e)
