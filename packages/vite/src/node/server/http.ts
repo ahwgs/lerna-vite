@@ -16,6 +16,7 @@ export async function resolveHttpServer(
   const httpsOptions = await resolveHttpsConfig(
     typeof https === 'boolean' ? {} : https
   )
+  // 如果使用代理
   if (proxy) {
     // #484 fallback to http1 when proxy is needed.
     return require('https').createServer(httpsOptions, app)
@@ -30,6 +31,7 @@ export async function resolveHttpServer(
   }
 }
 
+// 获取Https 配置，也可手动传入配置后做合并
 export async function resolveHttpsConfig(httpsOption: HttpsServerOptions) {
   const { ca, cert, key, pfx } = httpsOption
   Object.assign(httpsOption, {
@@ -39,6 +41,7 @@ export async function resolveHttpsConfig(httpsOption: HttpsServerOptions) {
     pfx: readFileIfExists(pfx)
   })
   if (!httpsOption.key || !httpsOption.cert) {
+    // 获取cert
     httpsOption.cert = httpsOption.key = await createCertificate()
   }
   return httpsOption

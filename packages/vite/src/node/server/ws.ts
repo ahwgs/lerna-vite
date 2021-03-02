@@ -11,16 +11,22 @@ export interface WebSocketServer {
   close(): Promise<void>
 }
 
+// 创建websocket
 export function createWebSocketServer(
   server: Server | null,
   config: ResolvedConfig
 ): WebSocketServer {
+  // 声明wss 实例
   let wss: WebSocket.Server
 
+  // 如果有http
   if (server) {
     wss = new WebSocket.Server({ noServer: true })
+    // 监听upgrade
     server.on('upgrade', (req, socket, head) => {
+      // 如果请求Sec-WebSocket-Protocol 为vite-hmr的话
       if (req.headers['sec-websocket-protocol'] === HMR_HEADER) {
+        // 连接
         wss.handleUpgrade(req, socket, head, (ws) => {
           wss.emit('connection', ws, req)
         })
@@ -28,6 +34,7 @@ export function createWebSocketServer(
     })
   } else {
     // vite dev server in middleware mode
+    // 如果是中间件模式下的 需要单独起ws 服务，并且默认端口24678
     wss = new WebSocket.Server({
       port:
         (typeof config.server.hmr === 'object' && config.server.hmr.port) ||
@@ -35,6 +42,7 @@ export function createWebSocketServer(
     })
   }
 
+  // 连接信息
   wss.on('connection', (socket) => {
     socket.send(JSON.stringify({ type: 'connected' }))
     if (bufferedError) {
@@ -64,6 +72,7 @@ export function createWebSocketServer(
         return
       }
 
+      // 序列化信息 发送
       const stringified = JSON.stringify(payload)
       wss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
@@ -72,6 +81,7 @@ export function createWebSocketServer(
       })
     },
 
+    // 服务关闭 返回Promise
     close() {
       return new Promise((resolve, reject) => {
         wss.close((err) => {

@@ -270,6 +270,8 @@ export async function createServer(
 
   // 利用 Connect 实现的中间件列表
   const middlewares = connect() as Connect.Server
+
+  config.logger.info(`serverConfig:${JSON.stringify(serverConfig)}`)
   // 创建 http 服务
   const httpServer = middlewareMode
     ? null
