@@ -271,7 +271,6 @@ export async function createServer(
   // 利用 Connect 实现的中间件列表
   const middlewares = connect() as Connect.Server
 
-  config.logger.info(`serverConfig:${JSON.stringify(serverConfig)}`)
   // 创建 http 服务
   const httpServer = middlewareMode
     ? null
@@ -382,9 +381,14 @@ export async function createServer(
   // 文件监听器 监听到change
   watcher.on('change', async (file) => {
     // 获取到改变的文件
+    config.logger.info(`file:${file}`)
     file = normalizePath(file)
+
+    config.logger.info(`normalizePath:${file}`)
+
     // invalidate module graph cache on file change
     // 文件改变 查出文件中的依赖 废弃依赖缓存
+
     moduleGraph.onFileChange(file)
     // 开启热更新
     if (serverConfig.hmr !== false) {
@@ -400,10 +404,12 @@ export async function createServer(
     }
   })
 
+  // 文件新增
   watcher.on('add', (file) => {
     handleFileAddUnlink(normalizePath(file), server)
   })
 
+  // 文件删除
   watcher.on('unlink', (file) => {
     handleFileAddUnlink(normalizePath(file), server, true)
   })
