@@ -297,6 +297,9 @@ export function importAnalysisPlugin(config: ResolvedConfig): Plugin {
               base,
               pattern
             }
+            server.config.logger.info(
+              `server._globImporters${JSON.stringify(server._globImporters)}`
+            )
           }
           continue
         }

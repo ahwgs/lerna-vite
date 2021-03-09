@@ -37,6 +37,7 @@ socket.addEventListener('message', async ({ data }) => {
 
 let isFirstUpdate = true
 
+// 监听ws信息
 async function handleMessage(payload: HMRPayload) {
   switch (payload.type) {
     case 'connected':

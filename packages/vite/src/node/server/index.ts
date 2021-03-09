@@ -261,7 +261,6 @@ export async function createServer(
 ): Promise<ViteDevServer> {
   // 加载开发配置文件
   const config = await resolveConfig(inlineConfig, 'serve', 'development')
-
   // 获取项目根目录（index.html 文件所在的位置）
   const root = config.root
   // 加载server配置 比如proxy hmr等等

@@ -157,12 +157,16 @@ function updateModules(
   })
 }
 
+// 文件删除或新增
 export async function handleFileAddUnlink(
   file: string,
   server: ViteDevServer,
   isUnlink = false
 ) {
+  // 如果是删除 并且文件在全局变量
+  // _globImporters 定义一个全局对象 存储地址与模块的映射
   if (isUnlink && file in server._globImporters) {
+    server.config.logger.info(`server._globImporters:${server._globImporters}`)
     delete server._globImporters[file]
   } else {
     const modules = []

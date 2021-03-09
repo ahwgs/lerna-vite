@@ -15,6 +15,7 @@ import { dynamicImportPolyfillPlugin } from './dynamicImportPolyfill'
 import { preAliasPlugin } from './preAlias'
 import { definePlugin } from './define'
 
+// 加载用户配置
 export async function resolvePlugins(
   config: ResolvedConfig,
   prePlugins: Plugin[],
