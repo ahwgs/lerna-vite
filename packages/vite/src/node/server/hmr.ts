@@ -34,13 +34,16 @@ function getShortName(file: string, root: string) {
   return file.startsWith(root + '/') ? path.posix.relative(root, file) : file
 }
 
+// 热更新 服务端方法
 export async function handleHMRUpdate(
   file: string,
   server: ViteDevServer
 ): Promise<any> {
   const { ws, config, moduleGraph } = server
+  // 获取文件名
   const shortFile = getShortName(file, config.root)
 
+  // 如果是配置文件或者环境变量文件修改
   if (file === config.configFile || file.endsWith('.env')) {
     // auto restart server
     debugHmr(`[config change] ${chalk.dim(shortFile)}`)
@@ -48,6 +51,7 @@ export async function handleHMRUpdate(
       chalk.green('config or .env file changed, restarting server...'),
       { clear: true, timestamp: true }
     )
+    // 重启服务
     await restartServer(server)
     return
   }
@@ -55,6 +59,7 @@ export async function handleHMRUpdate(
   debugHmr(`[file change] ${chalk.dim(shortFile)}`)
 
   // (dev only) the client itself cannot be hot updated.
+  // 开发专属 如果文件是client 客户端文件更新的话
   if (file.startsWith(normalizedClientDir)) {
     ws.send({
       type: 'full-reload',
@@ -63,10 +68,12 @@ export async function handleHMRUpdate(
     return
   }
 
+  // 获取文件中模块
   const mods = moduleGraph.getModulesByFile(file)
 
   // check if any plugin wants to perform custom HMR handling
   const timestamp = Date.now()
+  // 组合热更新实例
   const hmrContext: HmrContext = {
     file,
     timestamp,
@@ -74,9 +81,10 @@ export async function handleHMRUpdate(
     read: () => readModifiedFile(file),
     server
   }
-
+  // 检查插件是否有自定义热更新操作
   for (const plugin of config.plugins) {
     if (plugin.handleHotUpdate) {
+      // 获取受更改文件影响的模块数组
       const filteredModules = await plugin.handleHotUpdate(hmrContext)
       if (filteredModules) {
         hmrContext.modules = filteredModules
@@ -84,6 +92,7 @@ export async function handleHMRUpdate(
     }
   }
 
+  // 无依赖模块更新
   if (!hmrContext.modules.length) {
     // html file cannot be hot updated
     if (file.endsWith('.html')) {
@@ -91,6 +100,7 @@ export async function handleHMRUpdate(
         clear: true,
         timestamp: true
       })
+      // full-reload
       ws.send({
         type: 'full-reload',
         path: config.server.middlewareMode
@@ -107,39 +117,50 @@ export async function handleHMRUpdate(
   updateModules(shortFile, hmrContext.modules, timestamp, server)
 }
 
+// 更新模块
 function updateModules(
   file: string,
   modules: ModuleNode[],
   timestamp: number,
   { config, ws }: ViteDevServer
 ) {
+  // 更新列表
   const updates: Update[] = []
+  // 失效模块
   const invalidatedModules = new Set<ModuleNode>()
 
+  // 遍历模块
   for (const mod of modules) {
+    // 维护一个Set 使用propagateUpdate方法获取到当前需要更新的文件
     const boundaries = new Set<{
       boundary: ModuleNode
       acceptedVia: ModuleNode
     }>()
+    // 处理lastHMRTimestamp transformResult
+    // 取遍历的模块
     invalidate(mod, timestamp, invalidatedModules)
+    // 处理模块更新边界 并且拿到当前文件的需要更新的内容
     const hasDeadEnd = propagateUpdate(mod, timestamp, boundaries)
+    // 是否是更新边界
     if (hasDeadEnd) {
       config.logger.info(chalk.green(`page reload `) + chalk.dim(file), {
         clear: true,
         timestamp: true
       })
+      // 全量更新
       ws.send({
         type: 'full-reload'
       })
       return
     }
 
+    // 局部更新
     updates.push(
       ...[...boundaries].map(({ boundary, acceptedVia }) => ({
         type: `${boundary.type}-update` as Update['type'],
         timestamp,
-        path: boundary.url,
-        acceptedPath: acceptedVia.url
+        path: boundary.url, // 被引用文件
+        acceptedPath: acceptedVia.url // 修改文件
       }))
     )
   }
@@ -151,6 +172,7 @@ function updateModules(
     { clear: true, timestamp: true }
   )
 
+  // 进行更新
   ws.send({
     type: 'update',
     updates
@@ -197,6 +219,7 @@ function propagateUpdate(
   }>,
   currentChain: ModuleNode[] = [node]
 ): boolean /* hasDeadEnd */ {
+  // 是否是当前文件内部更新
   if (node.isSelfAccepting) {
     boundaries.add({
       boundary: node,
@@ -205,6 +228,7 @@ function propagateUpdate(
     return false
   }
 
+  // 该文件没有 importers
   if (!node.importers.size) {
     return true
   }
@@ -231,6 +255,7 @@ function propagateUpdate(
   return false
 }
 
+// 存入失效模块
 function invalidate(mod: ModuleNode, timestamp: number, seen: Set<ModuleNode>) {
   if (seen.has(mod)) {
     return
@@ -238,6 +263,7 @@ function invalidate(mod: ModuleNode, timestamp: number, seen: Set<ModuleNode>) {
   seen.add(mod)
   mod.lastHMRTimestamp = timestamp
   mod.transformResult = null
+  // 递归设置所有引入模块的lastHMRTimestamp  transformResult
   mod.importers.forEach((importer) => invalidate(importer, timestamp, seen))
 }
 

@@ -1,5 +1,5 @@
 import { foo as depFoo, nestedFoo } from './hmrDep'
-export const foo = 1
+export const foo = 2221
 text('.app', foo)
 text('.dep', depFoo)
 text('.nested', nestedFoo)

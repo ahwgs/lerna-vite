@@ -1,10 +1,10 @@
 export type HMRPayload =
-  | ConnectedPayload
-  | UpdatePayload
-  | FullReloadPayload
-  | CustomPayload
-  | ErrorPayload
-  | PrunePayload
+  | ConnectedPayload // 连接
+  | UpdatePayload // 更新
+  | FullReloadPayload // 全量更新
+  | CustomPayload // 自定义更新
+  | ErrorPayload // 错误更新
+  | PrunePayload // 清除无效依赖的副作用
 
 export interface ConnectedPayload {
   type: 'connected'

@@ -1,4 +1,4 @@
-export const foo = 1
+export const foo = 2
 export { foo as nestedFoo } from './hmrNestedDep'
 
 if (import.meta.hot) {

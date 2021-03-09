@@ -44,6 +44,7 @@ async function handleMessage(payload: HMRPayload) {
       console.log(`[vite] connected.`)
       // proxy(nginx, docker) hmr ws maybe caused timeout,
       // so send ping package let ws keep alive.
+      // 心跳机制
       setInterval(() => socket.send('ping'), __HMR_TIMEOUT__)
       break
     case 'update':
@@ -51,15 +52,18 @@ async function handleMessage(payload: HMRPayload) {
       // means the page opened with existing server compile error and the whole
       // module script failed to load (since one of the nested imports is 500).
       // in this case a normal update won't work and a full reload is needed.
+      // 第一次更新 并且有错误弹窗 直接重新加载页面
       if (isFirstUpdate && hasErrorOverlay()) {
         window.location.reload()
         return
       } else {
+        // 关闭错误弹窗
         clearErrorOverlay()
         isFirstUpdate = false
       }
       payload.updates.forEach((update) => {
         if (update.type === 'js-update') {
+          // 利用 Promise.all 发起更新请求
           queueUpdate(fetchUpdate(update))
         } else {
           // css-update
@@ -69,6 +73,7 @@ async function handleMessage(payload: HMRPayload) {
           // can't use querySelector with `[href*=]` here since the link may be
           // using relative paths so we need to use link.href to grab the full
           // URL for the include check.
+          // 替换header 中的样式引入的地址
           const el = ([].slice.call(
             document.querySelectorAll(`link`)
           ) as HTMLLinkElement[]).find((e) => e.href.includes(path))
@@ -83,12 +88,14 @@ async function handleMessage(payload: HMRPayload) {
       })
       break
     case 'custom':
+      // 存入customListenersMap 遍历去跑事件
       const cbs = customListenersMap.get(payload.event)
       if (cbs) {
         cbs.forEach((cb) => cb(payload.data))
       }
       break
     case 'full-reload':
+      // 如果是html文件 location.reload()
       if (payload.path && payload.path.endsWith('.html')) {
         // if html file is edited, only reload the page if the browser is
         // currently on that page.
@@ -260,11 +267,13 @@ async function fetchUpdate({ path, acceptedPath, timestamp }: Update) {
 
   // make sure we only import each dep once
   const modulesToUpdate = new Set<string>()
+  // 自己更新 只需要更新自己
   if (isSelfUpdate) {
     // self update - only update self
     modulesToUpdate.add(path)
   } else {
     // dep update
+    // 收集依赖更新
     for (const { deps } of mod.callbacks) {
       deps.forEach((dep) => {
         if (acceptedPath === dep) {
@@ -281,10 +290,12 @@ async function fetchUpdate({ path, acceptedPath, timestamp }: Update) {
 
   await Promise.all(
     Array.from(modulesToUpdate).map(async (dep) => {
+      // 依赖请求
       const disposer = disposeMap.get(dep)
       if (disposer) await disposer(dataMap.get(dep))
       const [path, query] = dep.split(`?`)
       try {
+        // 发起新模块请求
         const newMod = await import(
           /* @vite-ignore */
           base +

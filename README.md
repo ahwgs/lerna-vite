@@ -1,8 +1,7 @@
 ## Vite2.x 源码解读
-
 [初识 Vite](https://www.wolai.com/ahwgs/uAiTy6PkKe4EBCmRApiE35)
 
-[学习准备](https://www.wolai.com/ahwgs/4nkbSasLfH1rq3G9mEEiHf)
+[如何Debug Vite](https://www.wolai.com/ahwgs/4nkbSasLfH1rq3G9mEEiHf)
 
 [开发模式入口，创建服务  ](https://www.wolai.com/ahwgs/eSLuGgeTqRS5nag2WJMd34)
 
@@ -10,7 +9,9 @@
 
 [创建Http Server和Ws Server](https://www.wolai.com/ahwgs/kbzTsNabBMgNF2gaCYG3ny)
 
-[文件监听与热更新](https://www.wolai.com/ahwgs/vYNze1zTSQHH31hpGLMQ35)
+[文件监听](https://www.wolai.com/ahwgs/vYNze1zTSQHH31hpGLMQ35)
+
+[热更新HMR](https://www.wolai.com/ahwgs/aLVxmTBR4Q4hCS3hF72otN)
 
 [实现Vite自己的插件机制](https://www.wolai.com/ahwgs/66aW5jtQEZ7WTdEzSWGSyC)
 

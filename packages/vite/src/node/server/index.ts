@@ -380,11 +380,7 @@ export async function createServer(
   // 文件监听器 监听到change
   watcher.on('change', async (file) => {
     // 获取到改变的文件
-    config.logger.info(`file:${file}`)
     file = normalizePath(file)
-
-    config.logger.info(`normalizePath:${file}`)
-
     // invalidate module graph cache on file change
     // 文件改变 查出文件中的依赖 废弃依赖缓存
 
